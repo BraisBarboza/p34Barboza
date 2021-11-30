@@ -1,0 +1,108 @@
+package es.udc.juanporta.psi.clean.app.module.artist.presenter;
+
+import android.content.Context;
+import android.os.AsyncTask;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import es.udc.juanporta.psi.clean.app.data.gig.GigDatasourceImp;
+import es.udc.juanporta.psi.clean.app.domain.artist.Artist;
+import es.udc.juanporta.psi.clean.app.domain.artist.service.ArtistService;
+import es.udc.juanporta.psi.clean.app.domain.artist.service.ArtistServiceImp;
+import es.udc.juanporta.psi.clean.app.domain.gig.Gig;
+import es.udc.juanporta.psi.clean.app.domain.gig.service.GigService;
+import es.udc.juanporta.psi.clean.app.domain.gig.service.GigServiceImp;
+import es.udc.juanporta.psi.clean.app.module.artist.viewmodel.ArtistViewModel;
+import es.udc.juanporta.psi.clean.app.module.artist.viewmodel.ArtistViewModelMapper;
+
+public class ArtistsPresenterImp implements ArtistsPresenter {
+
+    private final static String TAG = ArtistsPresenterImp.class.getSimpleName();
+
+    private ArtistsView mView;
+    private Context mContext;
+    private List<ArtistViewModel> mArtistsViewModels;
+
+    private ArtistService mArtistService = new ArtistServiceImp();
+    private GigService mGigService = new GigServiceImp(new GigDatasourceImp());
+
+    public ArtistsPresenterImp(ArtistsView view, Context context) {
+
+        mView = view;
+        mContext= context;
+    }
+
+    @Override
+    public void initFlow() {
+
+        new GetArtistsTask().execute();
+    }
+
+    @Override
+    public void onClickArtist() {
+
+    }
+
+    private List<ArtistViewModel> getArtistsViewModel(List<Artist> artists) {
+
+        mArtistsViewModels = new ArtistViewModelMapper(artists).map();
+        return mArtistsViewModels;
+    }
+
+    private void getLastGigs(List<ArtistViewModel> artistsViewModels) {
+
+        int index = 0;
+        for (ArtistViewModel artist : artistsViewModels) {
+
+            new GetGigTask(index++).execute(artist);
+        }
+    }
+
+    private class GetArtistsTask extends AsyncTask<String, Void, List<Artist>> {
+
+        protected List<Artist> doInBackground(String... textToSearch) {
+
+            return mArtistService.searchArtists("Green Day", mContext);
+        }
+
+        protected void onPostExecute(List<Artist> result) {
+
+            mArtistsViewModels = getArtistsViewModel(result);
+            mView.showArtists(mArtistsViewModels);
+            getLastGigs(mArtistsViewModels);
+        }
+    }
+
+    private class GetGigTask extends AsyncTask<ArtistViewModel, Void, List<Gig>> {
+
+        private int mPosition;
+        private ArtistViewModel mArtist;
+
+        GetGigTask(int position) {
+
+            mPosition = position;
+        }
+
+        protected List<Gig> doInBackground(ArtistViewModel... artist) {
+
+            try {
+
+                Thread.sleep(3000);
+                mArtist = artist[0];
+                return mGigService.searchGig(mArtist.getId());
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            return new ArrayList<>();
+        }
+
+        protected void onPostExecute(List<Gig> result) {
+
+            mView.updateArtist(mArtist, mPosition);
+
+        }
+    }
+}
